@@ -3,6 +3,8 @@ import logging
 import time
 from typing import Optional
 from .endpoints import endpoints
+from .autoanswer import get_answer
+from re import search
 
 logger = logging.getLogger(__name__)
 __all__ = ['PollBot']
@@ -72,8 +74,7 @@ class PollBot:
 
         self.session = requests.Session()
         self.session.headers = {
-            'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36"
+            'user-agent': """Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15"""
         }
         # IDs of all polls we have answered already
         self.answered_polls = set()
@@ -190,10 +191,10 @@ class PollBot:
         else:
             url = endpoints['firehose_no_token'].format(
                 host=self.host,
-                timestamp=self.timestamp
+                timestamp=self.timestamp()
             )
         try:
-            r = self.session.get(url, timeout=0.3)
+            r = self.session.get(url)
             # Unique id for poll
             poll_id = json.loads(r.json()['message'])['uid']
         # Firehose either doesn't respond or responds with no data if no poll is open.
@@ -206,21 +207,29 @@ class PollBot:
             return poll_id
 
     def answer_poll(self, poll_id) -> dict:
-        import random
-
         url = endpoints['poll_data'].format(uid=poll_id)
         poll_data = self.session.get(url).json()
         options = poll_data['options'][self.min_option:self.max_option]
+        title = poll_data["title"]
+        options = {x["id"]:x["value"] for x in options}
+        question = title + "\n" + "\n".join(str(x) + ": " + options[x] for x in options)
+        answer = get_answer(question)
         try:
-            option_id = random.choice(options)['id']
-        except IndexError:
-            # `options` was empty
-            logger.error(f'Could not answer poll: poll only has '
-                         f'{len(poll_data["options"])} options but '
-                         f'self.min_option was {self.min_option} and '
-                         f'self.max_option: {self.max_option}')
-            return {}
-        r = self.session.post(
+            option_id = int(search(r'\d{9}', answer).group(0))
+            if option_id not in options.keys():
+                raise AttributeError()
+            print("gpt-3.5-turbo answered: ", option_id)
+        except AttributeError:
+            numbered = {}
+            for i, x in enumerate(options):
+                numbered[i] = x
+            print("Options: ")
+            for i in numbered:
+                print(i, options[numbered[i]])
+            print("gpt-3.5-turbo answered: ", answer)
+            option_id = numbered[int(input("Which one? "))]
+            
+        r = self.session.post( 
             endpoints['respond_to_poll'].format(uid=poll_id),
             headers={'x-csrf-token': self._get_csrf_token()},
             data={'option_id': option_id, 'isPending': True, 'source': "pollev_page"}
@@ -243,12 +252,9 @@ class PollBot:
             poll_id = self.get_new_poll_id(token)
 
             if poll_id is None:
-                logger.info(f'`{self.host}` has not opened any new polls. '
-                            f'Waiting {self.closed_wait} seconds before checking again.')
-                time.sleep(self.closed_wait)
+                logger.info(f'`{self.host}` has not opened any new polls.')
+                time.sleep(1.5)
             else:
-                logger.info(f"{self.host} has opened a new poll! "
-                            f"Waiting {self.open_wait} seconds before responding.")
-                time.sleep(self.open_wait)
+                logger.info(f"{self.host} has opened a new poll!")
                 r = self.answer_poll(poll_id)
-                logger.info(f'Received response: {r}')
+                time.sleep(1.5)
