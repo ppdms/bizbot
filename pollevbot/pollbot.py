@@ -5,6 +5,7 @@ from typing import Optional
 from .endpoints import endpoints
 from .autoanswer import get_answer
 from re import search
+from termcolor import colored
 
 logger = logging.getLogger(__name__)
 __all__ = ['PollBot']
@@ -218,17 +219,16 @@ class PollBot:
             option_id = int(search(r'\d{9}', answer).group(0))
             if option_id not in options.keys():
                 raise AttributeError()
-            print("gpt-3.5-turbo answered: ", option_id)
+            print("gpt-3.5-turbo answered: ", str(option_id) + ": " + options[option_id])
         except AttributeError:
             numbered = {}
             for i, x in enumerate(options):
                 numbered[i] = x
-            print("Options: ")
+            print(colored("Options: ", "red"))
             for i in numbered:
                 print(i, options[numbered[i]])
-            print("gpt-3.5-turbo answered: ", answer)
+            print(colored("gpt-3.5-turbo answered: ", "red"), answer)
             option_id = numbered[int(input("Which one? "))]
-            
         r = self.session.post( 
             endpoints['respond_to_poll'].format(uid=poll_id),
             headers={'x-csrf-token': self._get_csrf_token()},
@@ -253,8 +253,8 @@ class PollBot:
 
             if poll_id is None:
                 logger.info(f'`{self.host}` has not opened any new polls.')
-                time.sleep(1.5)
+                time.sleep(1)
             else:
                 logger.info(f"{self.host} has opened a new poll!")
                 r = self.answer_poll(poll_id)
-                time.sleep(1.5)
+                input(colored("Continue? ", "cyan"))
