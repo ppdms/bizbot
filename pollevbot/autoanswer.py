@@ -3,8 +3,6 @@ from .creds import API_KEY
 openai.api_key = API_KEY
 
 def get_answer(question):
-	with open("pollevbot/knowledge.txt", "r") as file:
-		knowledge = "".join(file.readlines())
 	prompt = f"You are BizGPT, an LLM designed to provide the id of the right answer to quiz questions from an undergraduate introductory management class at the Athens University of Economics and Business. You will next be provided with a question, and potential answers. Each answer is proceeded by its id, a 9 digit number. For instance, for the line \"123456789: C) test\", the number 123456789 is the id, and the rest is the answer body. Answer the following question by providing only the id of the correct answer. You MUST choose one of the answers included in the prompt. Do not explain your thinking. The question is:\n{question}"
 
 	print(question)
