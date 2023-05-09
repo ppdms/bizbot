@@ -210,6 +210,7 @@ class PollBot:
     def answer_poll(self, poll_id) -> dict:
         url = endpoints['poll_data'].format(uid=poll_id)
         poll_data = self.session.get(url).json()
+        print(poll_data)
         options = poll_data['options'][self.min_option:self.max_option]
         title = poll_data["title"]
         options = {x["id"]:x["value"] for x in options}
@@ -257,4 +258,4 @@ class PollBot:
             else:
                 logger.info(f"{self.host} has opened a new poll!")
                 r = self.answer_poll(poll_id)
-                input(colored("Continue? ", "cyan"))
+                time.sleep(1)
