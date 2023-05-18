@@ -210,6 +210,8 @@ class PollBot:
     def answer_poll(self, poll_id) -> dict:
         url = endpoints['poll_data'].format(uid=poll_id)
         poll_data = self.session.get(url).json()
+        if "options" not in poll_data:
+            return
         print(poll_data)
         options = poll_data['options'][self.min_option:self.max_option]
         title = poll_data["title"]
